@@ -47,4 +47,5 @@ venv_install: virtualenv
 	. ${VENV}/bin/activate && pip install -U pip && pip install -e .
 
 clean:
-	rm -Ifr ${VENV} sip-4.19.3 PyQt4_gpl_x11-4.12 PyQt*.tar.gz sip*.tar.gz
+	rm -Ifr ${VENV} sip-4.19.3 PyQt4_gpl_x11-4.12 PyQt*.tar.gz sip*.tar.gz \
+		evoc.egg-info
