@@ -1,0 +1,31 @@
+## name	description
+# types
+none	nothing
+parent	a parent
+child	a child
+is_a	a relationship
+
+organism	an organism
+unidentified	an unknown organism (NCBITax 81726)
+
+cluster	a cluster
+unknown_cluster	an unknown cluster
+
+gene	a gene
+unknown_gene	an unknown gene
+
+domain	a domain
+unknown_domain	an unknown domain
+
+molecule	a product of a cluster
+unknown_molecule	an unknown molecule
+
+## subject	relationship	parent
+# relationships
+child	is_a	parent
+
+unidentified	is_a	organism
+unknown_cluster	is_a	cluster
+unknown_gene	is_a	gene
+unknown_domain	is_a	domain
+unknown_molecule	is_a	molecule
