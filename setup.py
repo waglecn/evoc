@@ -26,7 +26,6 @@ setup(
         ]
     },
     zip_safe=False,
-    setup_requires=['numpy', 'scipy'],
     install_requires=[
         # -*- Extra requirements: -*-
         'setuptools',
@@ -39,8 +38,8 @@ setup(
         'ete3==3.1.1',
         'svgwrite==1.1.2',
         'pygraphviz',
-        'scipy==1.0.0',
-        'numpy==1.13.0rc2'
+        'scipy',
+        'numpy'
     ],
     entry_points={
         'console_scripts': [
