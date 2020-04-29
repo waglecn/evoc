@@ -1,6 +1,4 @@
-from setuptools import setup, find_packages
-import sys
-import os
+from setuptools import setup, find_packages  # type:ignore
 
 version = '0.1'
 
@@ -10,7 +8,8 @@ setup(
     description="A tool to study the evolution of gene clusters",
     long_description="""\
         """,
-    # Get strings from http://pypi.python.org/pypi?%3Aaction=list_classifiers
+    # Get strings from
+    # http://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[],
     keywords='',
     author='Nicholas Waglechner',
@@ -30,11 +29,11 @@ setup(
         # -*- Extra requirements: -*-
         'setuptools',
         'configparser',
-        'nose==1.3.7',
-        'coverage==4.4.2',
+        'nose',
+        'coverage',
         'progress==1.3',
         'six==1.11.0',
-        'biopython==1.70',
+        'biopython',
         'ete3==3.1.1',
         'svgwrite==1.1.2',
         'pygraphviz',
