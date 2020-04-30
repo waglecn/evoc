@@ -9,6 +9,9 @@ ifdef ($(WITHQT4),True)
   PYQT4=PyQt4
 endif
 
+all:
+	# don't do anything by default
+
 develop: venv_install
 	# all
 	@echo "all done\n"
@@ -27,6 +30,7 @@ PyQt_gpl_x11-4.12/QtCore/QtCore.so:
 
 virtualenv: prereqs ${VENV}/bin/activate ${PYQT4}
 	# virtualenv
+	. ${VENV}/bin/activate && pip install -U pip
 
 ${VENV}/bin/activate:
 	# activate
@@ -44,7 +48,8 @@ PyQt4_prereqs:
 venv_install: virtualenv
 	@echo "\n\nVIRTUALENV\n\n"
 	# venv
-	. ${VENV}/bin/activate && pip install -U pip && pip install -e .
+	. ${VENV}/bin/activate && pip install -e .
 
 clean:
-	rm -Ifr ${VENV} sip-4.19.3 PyQt4_gpl_x11-4.12 PyQt*.tar.gz sip*.tar.gz
+	rm -Ifr ${VENV} sip-4.19.3 PyQt4_gpl_x11-4.12 PyQt*.tar.gz sip*.tar.gz \
+		evoc.egg-info
