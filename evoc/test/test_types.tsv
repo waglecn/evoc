@@ -1,0 +1,12 @@
+## name	description
+# types
+none	nothing
+parent	a parent
+child	a child
+is_a	a relationship
+organism	an organism
+unknown_org	an unknown organism
+
+## subject	relationship	parent
+# relationships
+child	is_a	parent

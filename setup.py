@@ -42,7 +42,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            "evoc = evoc.__main__:main"
+            "evoc = evoc.cli:main"
         ]
     },
 )
