@@ -1,7 +1,7 @@
 import sqlite3
 
 
-def types_init():
+def type_init():
     """
     types table init string
 
@@ -22,7 +22,7 @@ def types_init():
     return types
 
 
-def rels_init():
+def rel_init():
     """
     relationships table init string
 
@@ -241,67 +241,3 @@ def check_relationship(
     except Exception as e:
         print('Caught: {0}'.format(str(e)))
         return False
-
-
-def load_relationships(connection, types, relationships):
-    """
-    Add a set of types and relationships. This will not add duplicates.
-
-    arguments:
-        types: from utils.read_relationship_tsv
-        relationships: from utils.read_relationship_tsv
-
-    return:
-        Boolean success/failure
-    """
-
-    type_map = {}
-    rels_to_add = []
-
-    try:
-        base_types = check_type(connection)
-        for base in base_types:
-            if base[1] not in type_map:
-                type_map[base[1]] = base[0]
-
-        for item in types:
-            temp = check_type(connection, name=item[0])
-            if not temp:
-                assert add_type(
-                    connection, name=item[0], description=item[1]
-                ), 'could not add type'
-                temp = check_type(
-                    connection, name=item[0], description=item[1]
-                )
-            type_key = temp[0][1]
-            type_id = temp[0][0]
-            if type_key not in type_map:
-                type_map[type_key] = type_id
-
-        for rel in relationships:
-            object_id = type_map[rel[0]]
-            subject_id = type_map[rel[1]]
-            type_id = type_map[rel[2]]
-            new_item = (object_id, subject_id, type_id)
-            if (
-                new_item not in rels_to_add and
-                not check_relationship(
-                    connection,
-                    object_id=new_item[0],
-                    subject_id=new_item[1],
-                    type_id=new_item[2]
-                )
-            ):
-                rels_to_add.append(new_item)
-
-        cmd = """
-            INSERT INTO type_relationship (object_id, subject_id, type_id)
-                VALUES (?, ?, ?)
-        """
-        cur = connection.cursor()
-        cur.executemany(cmd, rels_to_add)
-        return True
-    except Exception as e:
-        print('Caught: {0}'.format(str(e)))
-        return False
-
