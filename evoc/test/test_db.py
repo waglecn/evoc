@@ -1,6 +1,6 @@
 import os
 from evoc import db
-from nose.tools import assert_equal
+from nose.tools import assert_equal, assert_raises
 
 
 class Test_db:
@@ -20,30 +20,24 @@ class Test_db:
 
     def test_01_init_db(self):
         """Creating test db"""
-        try:
-            db.init_db(self.dbname)
-        except Exception:
-            assert_equal(True, False)
+        db.init_db(self.dbname)
 
     def test_02_backup_db(self):
         """backing up a test db"""
-        assert_equal(db.backup_db(self.dbname, self.dbname_backup), True)
+        db.dump_backup(self.dbname, self.dbname_backup)
 
     def test_03_restore_backup_db(self):
         """load a db backup"""
-        assert_equal(
-            db.load_backup(self.dbname_backup, self.dbname_new),
-            True
-        )
+        db.load_backup(self.dbname_backup, self.dbname_new)
 
-        # then actually open it
+        # then actually open it without error
         db.init_db(self.dbname_new)
 
     def test_04_restore_bad_file(self):
-        """load a non-existent db backup"""
-        assert_equal(
-            db.load_backup(
-                "doesnoexistfile",
-                self.dbname_new
-            ), False
+        """try to load a non-existent db backup"""
+        assert_raises(
+            FileNotFoundError,
+            db.load_backup,
+            "doesnoexistfile",
+            self.dbname_new
         )
