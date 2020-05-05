@@ -46,13 +46,6 @@ class Test_db_type:
         result = db.add_type(connection)
         assert_equal(result, False)
 
-    def test_03_bulk_add_types(self):
-        """test bulk adding of types"""
-        connection = self.connection
-        test_bulk = self.test_bulk
-        result = db.bulk_add_types(connection, test_bulk)
-        assert_equal(result, True)
-
     def test_04_type_by_type_id(self):
         """check an added type by type_id"""
         connection = self.connection

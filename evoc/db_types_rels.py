@@ -243,31 +243,6 @@ def check_relationship(
         return False
 
 
-def bulk_add_types(connection, types):
-    """
-    Bulk add types to type table, not checked for duplicates. This might
-    Be a bad idea.
-
-    connection: db connection object
-    types: list of ('name', 'description') tuples to be loaded
-
-    return Boolean success/failure
-    """
-
-    cur = connection.cursor()
-
-    cmd = """INSERT INTO type (name, description) VALUES(?, ?)"""
-
-    try:
-        for pair in types:
-            assert len(pair) == 2
-        cur.executemany(cmd, types)
-        return True
-    except Exception as e:
-        print('Caught: {0}'.format(str(e)))
-        return False
-
-
 def load_relationships(connection, types, relationships):
     """
     Add a set of types and relationships. This will not add duplicates.
