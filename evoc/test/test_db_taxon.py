@@ -158,3 +158,29 @@ class Test_db_taxon:
             type_id=99999,
             NCBI_tax_id=2
         )
+
+    def test_11_check_for_invalid_connection(self):
+        """Try to pass a bad connection"""
+        assert_raises(
+            SystemExit,
+            db.add_taxon,
+            None
+        )
+
+        assert_raises(
+            SystemExit,
+            db.add_taxon,
+            'X'
+        )
+
+        assert_raises(
+            SystemExit,
+            db.check_taxon,
+            None
+        )
+
+        assert_raises(
+            SystemExit,
+            db.add_taxon,
+            'X'
+        )

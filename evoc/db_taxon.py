@@ -27,7 +27,8 @@ def add_taxon(
 
     try:
         assert connection is not None
-    except AssertionError:
+        cur = connection.cursor()
+    except (AssertionError, AttributeError):
         logger.exception('Invalid connection supplied')
         raise SystemExit('Exiting.')
 
@@ -69,7 +70,6 @@ def add_taxon(
     """
 
     try:
-        cur = connection.cursor()
         cur.execute(cmd, items)
         return TaxonRow(*connection.execute(
             'SELECT taxon_id, type_id, NCBI_tax_id FROM taxon '
@@ -140,4 +140,5 @@ def check_taxon(
         results = connection.execute(cmd, values).fetchall()
         return [TaxonRow(*r) for r in results]
     except Exception as e:
-        print('Caught: {0}'.format(str(e)))
+        logger.exception('Caught: {0}'.format(str(e)))
+        raise SystemExit('Exiting.')
