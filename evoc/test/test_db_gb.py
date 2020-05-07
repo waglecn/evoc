@@ -1,22 +1,23 @@
 from evoc import db
 from nose.tools import assert_equal
-from nose.tools import assert_not_equal
-from nose.plugins.skip import SkipTest
+from nose.tools import assert_raises
+
+from evoc.logger import logger
+
+logger.setLevel(5)
 
 
-@SkipTest
 class Test_db_gb:
     def __init__(self):
         self.gb_id = 1
         self.gb_filename = './tests/test.gb'
-        self.nuc_id = 'DQ018711'
-        self.taxon_id = 1
         self.prefix = 'prefix'
         self.gb = ''
 
     @classmethod
     def setup_class(cls):
         cls.connection = db.init_db('./testdb.sqlite3')
+        cls.test_taxon = db.add_taxon(cls.connection, type_id=1, NCBI_tax_id=2)
 
     @classmethod
     def teardown_class(cls):
@@ -29,35 +30,32 @@ class Test_db_gb:
     def test_01_db_add_gb(self):
         """Add a gb"""
         connection = self.connection
-        nuc_id = self.nuc_id
-        nuc_gi = self.nuc_gi
-        taxon_id = self.taxon_id
+        taxon_id = self.test_taxon.taxon_id
         prefix = self.prefix
         gb = self.gb
+        loc = self.gb_filename
 
         result = db.add_gb(
             connection,
-            nuc_id=nuc_id,
-            nuc_gi=nuc_gi,
             taxon_id=taxon_id,
             prefix=prefix,
-            gb=gb
+            gb=gb,
+            loc=loc
         )
-        assert_equal(result, True)
+        assert_equal(True, isinstance(result, db.GbRow))
 
     def test_02_db_check_gb_by_gb_id(self):
         """Check a gb by gb_id"""
         connection = self.connection
-        gb_id = self.gb_id
-        nuc_id = self.nuc_id
-        nuc_gi = self.nuc_gi
-        taxon_id = self.taxon_id
+
+        taxon_id = self.test_taxon.taxon_id
         prefix = self.prefix
         gb = self.gb
+        loc = self.gb_filename
 
-        result = db.check_gb(connection, gb_id=gb_id)
-        item = (gb_id, nuc_id, nuc_gi, taxon_id, prefix, gb)
-        assert_equal(item, result[0])
+        result = db.check_gb(connection, gb_id=1)[0]
+        item = db.GbRow(result.gb_id, taxon_id, prefix, loc, gb)
+        assert_equal(item, result)
 
     def test_03_db_check_gb_without_where(self):
         """Check for all gb rows"""
@@ -68,38 +66,30 @@ class Test_db_gb:
     def test_04_db_add_empty_gb(self):
         """Try making empty add gb"""
         connection = self.connection
-        result = db.add_gb(connection)
-        assert_equal(result, False)
+        assert_raises(
+            SystemExit,
+            db.add_gb,
+            connection
+        )
 
     def test_05_db_check_gb_by_parts(self):
         """Check for gb with different paramters"""
         connection = self.connection
-        result = db.check_gb(
-            connection,
-            nuc_id=self.nuc_id
-        )
-        assert_equal(len(result), True)
-
-        result = db.check_gb(
-            connection,
-            nuc_gi=self.nuc_gi
-        )
-        assert_equal(len(result), True)
 
         result = db.check_gb(
             connection,
             prefix=self.prefix
         )
-        assert_equal(len(result), True)
+        assert_equal(True, isinstance(result[0], db.GbRow))
 
         result = db.check_gb(
             connection,
             gb=self.gb
         )
-        assert_equal(len(result), True)
+        assert_equal(True, isinstance(result[0], db.GbRow))
 
     def test_06_check_empty_gb_result(self):
-        """Check for returning and empty result"""
+        """Check for returning an empty result"""
         connection = self.connection
         result = db.check_gb(
             connection,
@@ -108,31 +98,59 @@ class Test_db_gb:
         assert_equal(result, [])
 
     def test_07_add_invalid(self):
-        """try adding a gb with invalid data"""
+        """Try adding a gb with invalid parameters"""
         connection = self.connection
-        result = db.add_gb(
+
+        assert_raises(
+            SystemExit,
+            db.add_gb,
             connection,
-            nuc_id='acc',
-            nuc_gi='X',
-            taxon_id=1,
+            taxon_id=1000,
             gb=self.gb
         )
-        assert_equal(result, False)
 
-        result = db.add_gb(
+        assert_raises(
+            SystemExit,
+            db.add_gb,
             connection,
-            nuc_id='acc',
-            nuc_gi=1,
             taxon_id='X',
             gb=self.gb
         )
-        assert_equal(result, False)
 
     def test_08_check_invalid_gb(self):
         """Check for a gb with an invalid gb_id"""
         connection = self.connection
-        result = db.check_gb(connection, gb_id='X')
-        assert_equal(result, False)
+        assert_raises(
+            SystemExit,
+            db.check_gb,
+            connection,
+            gb_id='X'
+        )
 
-        result = db.check_gb(connection, gb_id=9999999)
-        assert_equal(result, [])
+    def test_09_check_invalid_connection(self):
+        """Check for passing an invalid connection"""
+        assert_raises(
+            SystemExit,
+            db.add_gb,
+            None,
+            taxon_id=self.test_taxon.taxon_id,
+            prefix=self.prefix,
+            gb=self.gb,
+            loc=self.gb_filename
+        )
+
+        assert_raises(
+            SystemExit,
+            db.add_gb,
+            'X',
+            taxon_id=self.test_taxon.taxon_id,
+            prefix=self.prefix,
+            gb=self.gb,
+            loc=self.gb_filename
+        )
+
+        assert_raises(
+            SystemExit,
+            db.check_gb,
+            None
+        )
