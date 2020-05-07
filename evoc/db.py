@@ -32,7 +32,12 @@ def init_db(dbfile):
         logger.debug('Found existing file {}'.format(os.path.abspath(dbfile)))
     else:
         logger.debug('Creating new file {}'.format(os.path.abspath(dbfile)))
-    connection = sqlite3.connect(dbfile)
+
+    try:
+        connection = sqlite3.connect(dbfile)
+    except Exception as e:
+        logger.error('Could not open: {}'.format(e))
+        raise SystemExit('Exiting.')
 
     TYPE_SQL = type_init()
     connection.execute(TYPE_SQL)
@@ -86,7 +91,8 @@ def load_backup(dumpfile, newdb):
     try:
         connection = sqlite3.connect(newdb)
     except Exception as e:
-        logger.error('Could not open new file {}\n{}'.format(newdb, e))
+        logger.exception('Could not open new file {}\n{}'.format(newdb, e))
+        raise SystemExit('Exiting.')
 
     try:
         with open(dumpfile, 'r') as inh:
@@ -100,8 +106,8 @@ def load_backup(dumpfile, newdb):
                     buff = ""
         logger.debug('complete')
     except Exception as e:
-        logger.debug('failed: {}'.format(e))
-        raise e
+        logger.exception('failed: {}'.format(e))
+        raise SystemExit('Exiting.')
 
 
 def parse_relationship_tsv(tsv_file, types=set(), relationships=set()):
@@ -117,9 +123,9 @@ def parse_relationship_tsv(tsv_file, types=set(), relationships=set()):
         ]
     except FileNotFoundError:
         logger.error(
-            'TSV File not found: {}'.format(os.path.abspath(tsv_file))
+            'tsv File not found: {}'.format(os.path.abspath(tsv_file))
         )
-        raise SystemExit('Exiting')
+        raise SystemExit('Exiting.')
 
     types = {Type(*line) for line in infile if len(line) == 2}
     relationships = {Rel(*line) for line in infile if len(line) == 3}
@@ -149,9 +155,6 @@ def load_types_rels(connection, types, relationships):
 
     rels_to_add = []
 
-    def _check_t(connection, name):
-        cmd = "SELECT * FROM type WHERE name = ?)"
-        return connection.execute(cmd, (name,))
     known = set()
     for t in types:
         t_result = add_type(
@@ -183,10 +186,10 @@ def encode_gene_location(location):
     try:
         item = json.dumps(location)
         if item == 'null':
-            raise Exception
+            raise ValueError('null returned')
         return item
-    except Exception as e:
-        logger.error('Caught: {0}'.format(str(e)))
+    except Exception:
+        logger.exception('Problem converting location')
         raise SystemExit('Exiting.')
 
 
@@ -196,6 +199,6 @@ def decode_gene_location(encoded_location):
     try:
         item = json.loads(encoded_location)
         return item
-    except Exception as e:
-        logger.error('Caught: {0}'.format(str(e)))
+    except Exception:
+        logger.exception('Problem decoding location')
         raise SystemExit('Exiting.')

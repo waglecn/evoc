@@ -42,7 +42,7 @@ class Test_db:
     def test_04_restore_bad_file(self):
         """Try to load a non-existent db backup"""
         assert_raises(
-            FileNotFoundError,
+            SystemExit,
             db.load_backup,
             "doesnoexistfile",
             self.dbname_new
