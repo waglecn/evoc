@@ -7,6 +7,7 @@ Exports (classes, exceptions, functions)
 
 import os
 import sqlite3
+from collections import namedtuple
 
 try:
     import importlib.resources as importlib_resources
@@ -32,10 +33,9 @@ def init_db(dbfile):
     else:
         logger.debug('Creating new file {}'.format(os.path.abspath(dbfile)))
     connection = sqlite3.connect(dbfile)
-    connection.isolation_level = None
 
-    TYPES_SQL = type_init()
-    connection.execute(TYPES_SQL)
+    TYPE_SQL = type_init()
+    connection.execute(TYPE_SQL)
 
     REL_SQL = rel_init()
     connection.execute(REL_SQL)
@@ -64,7 +64,7 @@ def init_db(dbfile):
     with importlib_resources.path('evoc', 'basic_types.tsv') as path:
         basic_types_file = path
     types, rels = parse_relationship_tsv(basic_types_file)
-    load_relationships(connection, types, rels)
+    load_types_rels(connection, types, rels)
     connection.commit()
 
     return connection
@@ -83,78 +83,59 @@ def load_backup(dumpfile, newdb):
     logger.debug('attempting to import {} into {}'.format(
         os.path.abspath(dumpfile), os.path.abspath(newdb)
     ))
-    connection = sqlite3.connect(newdb)
+    try:
+        connection = sqlite3.connect(newdb)
+    except Exception as e:
+        logger.error('Could not open new file {}\n{}'.format(newdb, e))
+
     try:
         with open(dumpfile, 'r') as inh:
-            dump = inh.read()
-            connection.executescript(dump)
-            connection.commit()
+            buff = ""
+            for dump in inh:
+                dump = dump.replace('COMMIT', '')
+                buff += dump
+                if ';' in buff:
+                    connection.executescript(buff)
+                    connection.commit()
+                    buff = ""
         logger.debug('complete')
     except Exception as e:
         logger.debug('failed: {}'.format(e))
         raise e
 
 
-def parse_relationship_tsv(tsv_file, types=None, relationships=None):
-    """open a relationship tsv file, return tuple (types, relationshps)"""
+def parse_relationship_tsv(tsv_file, types=set(), relationships=set()):
+    """Open a tsv file, return tuple of sets (types, relationshps)"""
 
-    sections = ['# types', '# relationships']
+    Type = namedtuple('Type', "name, description")
+    Rel = namedtuple('Rel', "object, subject, rel")
 
-    if types is None:
-        types = []
-    if relationships is None:
-        relationships = []
+    try:
+        infile = [
+            line.strip().split('\t') for line in open(tsv_file, 'r') if
+            not line.startswith('#')
+        ]
+    except FileNotFoundError:
+        logger.error(
+            'TSV File not found: {}'.format(os.path.abspath(tsv_file))
+        )
+        raise SystemExit('Exiting')
 
-    with open(tsv_file, 'r') as infile:
-        section = None
-        lineno = 0
-        for line in infile:
-            lineno += 1
-            line = line.rstrip()
-            if len(line) == 0:
-                continue
-            elif line[0] == '#':
-                if not line[1] == '#':
-                    section = line
-                    assert section in sections, '{1} {0} not a section'.format(
-                        section,
-                        lineno
-                    )
-            elif len(line) > 0 and section == '# types':
-                line = tuple(line.split('\t'))
-                assert len(line) == 2, 'bad line:{1} {0}'.format(line, lineno)
-                if line not in types:
-                    types.append(line)
-                    typenames = [t[0] for t in types]
-            elif len(line) > 0 and section == '# relationships':
-                line = line.split('\t')
-                assert len(line) == 3, 'bad line: {1} {0}'.format(line, lineno)
-                # (object, subject, relationship)
-                tobject = line[2]
-                assert tobject in typenames, (
-                    typenames,
-                    '{1} {0} not in types'.format(
-                        tobject,
-                        lineno
-                    )
-                )
-                tsubject = line[0]
-                assert tsubject in typenames, '{1} {0} not in types'.format(
-                    tsubject,
-                    lineno
-                )
-                trel = line[1]
-                assert tobject in typenames, '{1} {0} not in types'.format(
-                    trel,
-                    lineno
-                )
-                new_item = (tobject, tsubject, trel)
-                if new_item not in relationships:
-                    relationships.append(new_item)
+    types = {Type(*line) for line in infile if len(line) == 2}
+    relationships = {Rel(*line) for line in infile if len(line) == 3}
+
+    known_names = {t.name for t in types}
+    for rel in relationships:
+        for name in rel:
+            if name not in known_names:
+                logger.warn('unmatched type name {}'.format(name))
+                types.add(Type(name, 'no description'))
+                known_names.add(name)
+
     return (types, relationships)
 
 
-def load_relationships(connection, types, relationships):
+def load_types_rels(connection, types, relationships):
     """
     Add a set of types and relationships. This will not add duplicates.
 
@@ -166,55 +147,35 @@ def load_relationships(connection, types, relationships):
         Boolean success/failure
     """
 
-    type_map = {}
     rels_to_add = []
 
-    try:
-        base_types = check_type(connection)
-        for base in base_types:
-            if base[1] not in type_map:
-                type_map[base[1]] = base[0]
+    known = set(check_type(connection=connection))
+    known_names = {k.name: k.type_id for k in known}
 
-        for item in types:
-            temp = check_type(connection, name=item[0])
-            if not temp:
-                assert add_type(
-                    connection, name=item[0], description=item[1]
-                ), 'could not add type'
-                temp = check_type(
-                    connection, name=item[0], description=item[1]
-                )
-            type_key = temp[0][1]
-            type_id = temp[0][0]
-            if type_key not in type_map:
-                type_map[type_key] = type_id
+    for t in types:
+        if t.name not in known_names:
+            add_type(
+                connection=connection,
+                name=t.name,
+                description=t.description
+            )
+            new = check_type(connection, name=t.name)[0]
+            known.add(new)
+            known_names[new.name] = new.type_id
 
-        for rel in relationships:
-            object_id = type_map[rel[0]]
-            subject_id = type_map[rel[1]]
-            type_id = type_map[rel[2]]
-            new_item = (object_id, subject_id, type_id)
-            if (
-                new_item not in rels_to_add
-                and not check_relationship(
-                    connection,
-                    object_id=new_item[0],
-                    subject_id=new_item[1],
-                    type_id=new_item[2]
-                )
-            ):
-                rels_to_add.append(new_item)
+    for rel in relationships:
+        new_rel = (
+            known_names[rel.object],
+            known_names[rel.subject],
+            known_names[rel.rel]
+        )
+        rels_to_add.append(new_rel)
 
         cmd = """
             INSERT OR IGNORE INTO type_relationship
                 (object_id, subject_id, type_id) VALUES (?, ?, ?)
         """
-        cur = connection.cursor()
-        cur.executemany(cmd, rels_to_add)
-        return True
-    except Exception as e:
-        print('Caught: {0}'.format(str(e)))
-        return False
+    connection.executemany(cmd, rels_to_add)
 
 
 def encode_gene_location(location):
@@ -226,8 +187,8 @@ def encode_gene_location(location):
             raise Exception
         return item
     except Exception as e:
-        print('Caught: {0}'.format(str(e)))
-        return False
+        logger.error('Caught: {0}'.format(str(e)))
+        raise SystemExit('Exiting.')
 
 
 def decode_gene_location(encoded_location):
@@ -237,5 +198,5 @@ def decode_gene_location(encoded_location):
         item = json.loads(encoded_location)
         return item
     except Exception as e:
-        print('Caught: {0}'.format(str(e)))
-        return False
+        logger.error('Caught: {0}'.format(str(e)))
+        raise SystemExit('Exiting.')
