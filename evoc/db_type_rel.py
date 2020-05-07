@@ -1,4 +1,11 @@
 import sqlite3
+from collections import namedtuple
+from evoc.logger import logger
+
+TypeRow = namedtuple('TypeRow', 'type_id, name, description')
+RelRow = namedtuple(
+    'RelRow', 'relationship_id, object_id, subject_id, type_id'
+)
 
 
 def type_init():
@@ -12,14 +19,14 @@ def type_init():
 
     """
 
-    types = """
+    TYPE_SQL = """
         CREATE TABLE IF NOT EXISTS type(
             type_id INTEGER UNIQUE PRIMARY KEY NOT NULL,
             name TEXT UNIQUE NOT NULL,
             description TEXT NOT NULL
         )
     """
-    return types
+    return TYPE_SQL
 
 
 def rel_init():
@@ -33,7 +40,7 @@ def rel_init():
 
     """
 
-    type_relationships = """
+    REL_SQL = """
         CREATE TABLE IF NOT EXISTS type_relationship(
             relationship_id INTEGER UNIQUE PRIMARY KEY NOT NULL,
             subject_id INTEGER NOT NULL,
@@ -45,7 +52,7 @@ def rel_init():
             FOREIGN KEY (type_id) REFERENCES type(type_id)
         )
     """
-    return type_relationships
+    return REL_SQL
 
 
 def add_type(connection, name=None, description=None):
@@ -67,23 +74,21 @@ def add_type(connection, name=None, description=None):
     """
 
     try:
-        cur = connection.cursor()
         assert name is not None
         assert description is not None
-        cur.execute(cmd, (name, description))
-        return True
-    except sqlite3.IntegrityError as e:
-        # catch not null exception
-        print('Caught: {0}'.format(str(e)))
-        print(
-            'Error adding type (name) {0} (description) {1}'.format(
+        connection.execute(cmd, (name, description))
+    except sqlite3.IntegrityError:
+        logger.debug(
+            'Duplicate add type (name) {0} (description) {1}'.format(
                 name, description
             )
         )
-        raise sqlite3.IntegrityError
-    except Exception as e:
-        print('Caught: {0}'.format(str(e)))
-        return False
+    except AssertionError as e:
+        logger.Error('NoneType caught: {0}'.format(str(e)))
+        raise SystemExit
+    return TypeRow(*connection.execute(
+        "SELECT * FROM type WHERE name = ?", (name,)
+    ).fetchone())
 
 
 def check_type(connection, type_id=None, name=None, description=None):
@@ -120,20 +125,18 @@ def check_type(connection, type_id=None, name=None, description=None):
         fields = ' AND '.join(fields)
         values = tuple(values)
 
-        cur = connection.cursor()
-
         if len(fields) > 0:
             cmd = """SELECT type_id, name, description
                 FROM type
                 WHERE """ + fields
-            results = cur.execute(cmd, values).fetchall()
+            results = connection.execute(cmd, values)
         else:
             cmd = """SELECT type_id, name, description FROM type"""
-            results = cur.execute(cmd).fetchall()
+            results = connection.execute(cmd)
 
-        return results
+        return [TypeRow(*r) for r in results]
     except Exception as e:
-        print('Caught: {0}'.format(str(e)))
+        logger.info('Caught: {0}'.format(str(e)))
 
 
 def add_relationship(
@@ -158,17 +161,16 @@ def add_relationship(
     """
 
     try:
-        cur = connection.cursor()
         int(object_id)
         int(subject_id)
         int(type_id)
         assert object_id is not None
         assert subject_id is not None
         assert type_id is not None
-        cur.execute(cmd, (object_id, subject_id, type_id))
+        connection.execute(cmd, (object_id, subject_id, type_id))
         return True
     except Exception as e:
-        print('Caught: {0} adding sub {1}, type {2}, ob {3}'.format(
+        logger.info('Caught: {0} adding sub {1}, type {2}, ob {3}'.format(
             str(e), subject_id, type_id, object_id)
         )
         return False
@@ -203,21 +205,18 @@ def check_relationship(
     try:
         if relationship_id is not None:
             fields.append('relationship_id = ?')
-            values.append(relationship_id)
+            values.append(int(relationship_id))
         if object_id is not None:
             fields.append('object_id = ?')
-            values.append(object_id)
+            values.append(int(object_id))
         if subject_id is not None:
             fields.append('subject_id = ?')
-            values.append(subject_id)
+            values.append(int(subject_id))
         if type_id is not None:
             fields.append('type_id =?')
-            values.append(type_id)
+            values.append(int(type_id))
 
         assert(len(fields) == len(values))
-
-        for i in values:
-            int(i)
 
         cmd = """SELECT
                 relationship_id,
@@ -227,17 +226,16 @@ def check_relationship(
             FROM type_relationship
         """
 
-        cur = connection.cursor()
         fields = " AND ".join(fields)
         values = tuple(values)
 
         if(len(fields) > 0):
             cmd += " WHERE " + fields
-            results = cur.execute(cmd, values).fetchall()
+            results = connection.execute(cmd, values)
         else:
-            results = cur.execute(cmd).fetchall()
+            results = connection.execute(cmd)
 
-        return results
+        return [RelRow(*r) for r in results]
     except Exception as e:
-        print('Caught: {0}'.format(str(e)))
+        logger.info('Caught: {0}'.format(str(e)))
         return False

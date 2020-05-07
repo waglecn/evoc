@@ -149,20 +149,19 @@ def load_types_rels(connection, types, relationships):
 
     rels_to_add = []
 
-    known = set(check_type(connection=connection))
-    known_names = {k.name: k.type_id for k in known}
-
+    def _check_t(connection, name):
+        cmd = "SELECT * FROM type WHERE name = ?)"
+        return connection.execute(cmd, (name,))
+    known = set()
     for t in types:
-        if t.name not in known_names:
-            add_type(
-                connection=connection,
-                name=t.name,
-                description=t.description
-            )
-            new = check_type(connection, name=t.name)[0]
-            known.add(new)
-            known_names[new.name] = new.type_id
+        t_result = add_type(
+            connection=connection,
+            name=t.name,
+            description=t.description
+        )
+        known.add(t_result)
 
+    known_names = {t.name: t.type_id for t in known}
     for rel in relationships:
         new_rel = (
             known_names[rel.object],
