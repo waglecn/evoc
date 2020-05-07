@@ -1,7 +1,6 @@
 import sys
 import os
 
-from evoc import utils
 from evoc import db
 from evoc import type_rel
 
@@ -34,16 +33,15 @@ class Test_type_rel:
         """close database connection"""
         cls.connection.close()
         import os
-        os.remove(cls.dbname)
-        os.remove('test.thv')
+        try:
+            os.remove(cls.dbname)
+            os.remove('test.thv')
+        except OSError:
+            pass
 
     def test_01_check_children_invalid(self):
         """Check children of an invalid term"""
         connection = self.connection
-
-        rel_tsv_file = self.rel_tsv_file
-        types, relationships = utils.read_relationship_tsv(rel_tsv_file)
-        db.load_relationships(connection, types, relationships)
 
         rel_type = db.check_type(connection, name='is_a')[0]
         rel_id = rel_type[0]

@@ -4,7 +4,7 @@ from evoc.logger import logger
 
 TypeRow = namedtuple('TypeRow', 'type_id, name, description')
 RelRow = namedtuple(
-    'RelRow', 'relationship_id, object_id, subject_id, type_id'
+    'RelRow', 'relationship_id, subject_id, object_id, type_id'
 )
 
 
@@ -166,25 +166,48 @@ def add_relationship(
         Boolean success/failure
 
     """
+    try:
+        assert connection is not None
+        assert object_id is not None
+        assert subject_id is not None
+        assert type_id is not None
+    except AssertionError:
+        logger.exception('Invalid argument supplied')
+        raise SystemExit('Exiting.')
 
     cmd = """INSERT INTO type_relationship (object_id, subject_id, type_id)
         VALUES (?, ?, ?)
     """
 
     try:
-        int(object_id)
-        int(subject_id)
-        int(type_id)
-        assert object_id is not None
-        assert subject_id is not None
-        assert type_id is not None
+        object_id = int(object_id)
+        subject_id = int(subject_id)
+        type_id = int(type_id)
+    except ValueError:
+        logger.exception('Invalid id supplied')
+        raise SystemExit('Exiting.')
+
+    try:
         connection.execute(cmd, (object_id, subject_id, type_id))
-        return True
+        return RelRow(*connection.execute(
+            'SELECT relationship_id, subject_id, object_id, type_id '
+            'FROM type_relationship '
+            'WHERE object_id = ? AND subject_id = ? AND type_id = ?',
+            (object_id, subject_id, type_id)
+        ).fetchone())
+    except sqlite3.IntegrityError:
+        logger.exception(
+            'Trying to add relationship with non-existant ids ('
+            'sub {}, type {}, ob {})'.format(
+                subject_id, type_id, object_id
+            )
+        )
+        raise SystemExit('Exiting.')
     except Exception as e:
         logger.exception('Caught: {0} adding sub {1}, type {2}, ob {3}'.format(
             str(e), subject_id, type_id, object_id)
         )
-        return False
+        raise SystemExit('Exiting')
 
 
 def check_relationship(
@@ -212,7 +235,7 @@ def check_relationship(
     try:
         assert connection is not None
     except AssertionError:
-        logger.exception('Invalid connection')
+        logger.exception('Invalid argument supplied')
         raise SystemExit('Exiting.')
 
     fields = []
@@ -231,20 +254,24 @@ def check_relationship(
         if type_id is not None:
             fields.append('type_id =?')
             values.append(int(type_id))
+    except ValueError:
+        logger.exception('Invalid parameter supplied')
+        raise SystemExit('Exiting.')
 
-        assert(len(fields) == len(values))
+    assert(len(fields) == len(values))
 
-        cmd = """SELECT
-                relationship_id,
-                object_id,
-                subject_id,
-                type_id
-            FROM type_relationship
-        """
+    cmd = """SELECT
+            relationship_id,
+            subject_id,
+            object_id,
+            type_id
+        FROM type_relationship
+    """
 
-        fields = " AND ".join(fields)
-        values = tuple(values)
+    fields = " AND ".join(fields)
+    values = tuple(values)
 
+    try:
         if(len(fields) > 0):
             cmd += " WHERE " + fields
             results = connection.execute(cmd, values)
@@ -254,4 +281,4 @@ def check_relationship(
         return [RelRow(*r) for r in results]
     except Exception as e:
         logger.exception('Caught: {0}'.format(str(e)))
-        return False
+        raise SystemExit('Exiting.')
