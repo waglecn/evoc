@@ -13,15 +13,11 @@ class Test_db_type:
 
     @classmethod
     def setup_class(cls):
-        cls.connection = db.init_db('./testdb.sqlite3')
+        cls.connection = db.init_db(':memory:')
 
     @classmethod
     def teardown_class(cls):
-        cmd = "DROP TABLE IF EXISTS type"
-        cur = cls.connection.cursor()
-        cur.execute(cmd)
-        cls.connection.commit()
-        cls.connection.close()
+        pass
 
     def test_01_add_type(self):
         """Add an example type"""
@@ -80,9 +76,25 @@ class Test_db_type:
         assert_equal(result1, result2)
 
     def test_08_check_invalid_params(self):
-        """Check with invalid parameters"""
+        """Test check and add with invalid parameters"""
         connection = self.connection
         assert_raises(SystemExit, db.check_type, connection, type_id='X')
 
         connection = None
+        assert_raises(
+            SystemExit, db.add_type, connection, name='', description='')
         assert_raises(SystemExit, db.check_type, connection, type_id=1)
+        assert_raises(
+            SystemExit, db.add_relationship,
+            connection, subject_id=1, object_id=1, type_id=1,)
+        assert_raises(SystemExit, db.check_relationship, connection, type_id=1)
+
+        connection = 'X'
+        assert_raises(
+            SystemExit, db.add_type, connection, name='', description='')
+
+        assert_raises(SystemExit, db.check_type, connection, type_id=1)
+        assert_raises(
+            SystemExit, db.add_relationship,
+            connection, subject_id=1, object_id=1, type_id=1,)
+        assert_raises(SystemExit, db.check_relationship, connection, type_id=1)

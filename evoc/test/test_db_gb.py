@@ -1,3 +1,4 @@
+import os
 from evoc import db
 from nose.tools import assert_equal
 from nose.tools import assert_raises
@@ -16,16 +17,18 @@ class Test_db_gb:
 
     @classmethod
     def setup_class(cls):
-        cls.connection = db.init_db('./testdb.sqlite3')
+        cls.dbfilename = ('./testdb.sqlite3')
+        cls.connection = db.init_db(cls.dbfilename)
         cls.test_taxon = db.add_taxon(cls.connection, type_id=1, NCBI_tax_id=2)
 
     @classmethod
     def teardown_class(cls):
-        cmd = "DROP TABLE IF EXISTS gb"
-        cur = cls.connection.cursor()
-        cur.execute(cmd)
         cls.connection.commit()
         cls.connection.close()
+        try:
+            os.remove(cls.dbfilename)
+        except OSError:
+            pass
 
     def test_01_db_add_gb(self):
         """Add a gb"""
@@ -149,8 +152,5 @@ class Test_db_gb:
             loc=self.gb_filename
         )
 
-        assert_raises(
-            SystemExit,
-            db.check_gb,
-            None
-        )
+        assert_raises(SystemExit, db.check_gb, None)
+        assert_raises(SystemExit, db.check_gb, 'X')

@@ -91,6 +91,9 @@ def add_type(connection, name=None, description=None):
     except AssertionError as e:
         logger.error('NoneType caught: {0}'.format(str(e)))
         raise SystemExit('Exiting.')
+    except AttributeError:
+        logger.error('Invalid connection')
+        raise SystemExit('Exiting.')
 
     return TypeRow(*connection.execute(
         "SELECT * FROM type WHERE name = ?", (name,)
@@ -132,10 +135,14 @@ def check_type(connection, type_id=None, name=None, description=None):
             fields.append('type_id = ?')
             int(type_id)
             values.append(type_id)
+    except ValueError as e:
+        logger.exception('Invalid input: {0}'.format(str(e)))
+        raise SystemExit
 
-        fields = ' AND '.join(fields)
-        values = tuple(values)
+    fields = ' AND '.join(fields)
+    values = tuple(values)
 
+    try:
         if len(fields) > 0:
             cmd = """SELECT type_id, name, description
                 FROM type
@@ -145,9 +152,9 @@ def check_type(connection, type_id=None, name=None, description=None):
             cmd = """SELECT type_id, name, description FROM type"""
             results = connection.execute(cmd)
         return [TypeRow(*r) for r in results]
-    except ValueError as e:
-        logger.exception('Invalid input: {0}'.format(str(e)))
-        raise SystemExit
+    except Exception:
+        logger.exception('Invalid connection')
+        raise SystemExit('Exiting.')
 
 
 def add_relationship(
@@ -167,12 +174,18 @@ def add_relationship(
 
     """
     try:
-        assert connection is not None
         assert object_id is not None
         assert subject_id is not None
         assert type_id is not None
     except AssertionError:
         logger.exception('Invalid argument supplied')
+        raise SystemExit('Exiting.')
+
+    try:
+        assert connection is not None
+        cur = connection.cursor()
+    except (AssertionError, AttributeError):
+        logger.exception("Invalid connection")
         raise SystemExit('Exiting.')
 
     cmd = """INSERT INTO type_relationship (object_id, subject_id, type_id)
@@ -188,12 +201,11 @@ def add_relationship(
         raise SystemExit('Exiting.')
 
     try:
-        connection.execute(cmd, (object_id, subject_id, type_id))
+        cur.execute(cmd, (object_id, subject_id, type_id))
         return RelRow(*connection.execute(
             'SELECT relationship_id, subject_id, object_id, type_id '
-            'FROM type_relationship '
-            'WHERE object_id = ? AND subject_id = ? AND type_id = ?',
-            (object_id, subject_id, type_id)
+            'FROM type_relationship WHERE relationship_id = ?',
+            (cur.lastrowid,)
         ).fetchone())
     except sqlite3.IntegrityError:
         logger.exception(
