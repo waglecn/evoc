@@ -35,6 +35,7 @@ def init_db(dbfile):
 
     try:
         connection = sqlite3.connect(dbfile)
+        connection.execute('PRAGMA foreign_keys = 1')
     except Exception as e:
         logger.error('Could not open: {}'.format(e))
         raise SystemExit('Exiting.')
@@ -114,7 +115,7 @@ def parse_relationship_tsv(tsv_file, types=set(), relationships=set()):
     """Open a tsv file, return tuple of sets (types, relationshps)"""
 
     Type = namedtuple('Type', "name, description")
-    Rel = namedtuple('Rel', "object, subject, rel")
+    Rel = namedtuple('Rel', "subject, rel, object")
 
     try:
         infile = [
