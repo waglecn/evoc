@@ -68,6 +68,11 @@ def add_type(connection, name=None, description=None):
         Boolean success/failure
 
     """
+    try:
+        assert connection is not None
+    except AssertionError:
+        logger.exception('Invalid connection')
+        raise SystemExit('Exiting.')
 
     cmd = """
         INSERT INTO type (name, description) VALUES(?, ?)
@@ -84,8 +89,9 @@ def add_type(connection, name=None, description=None):
             )
         )
     except AssertionError as e:
-        logger.Error('NoneType caught: {0}'.format(str(e)))
-        raise SystemExit
+        logger.error('NoneType caught: {0}'.format(str(e)))
+        raise SystemExit('Exiting.')
+
     return TypeRow(*connection.execute(
         "SELECT * FROM type WHERE name = ?", (name,)
     ).fetchone())
@@ -107,6 +113,11 @@ def check_type(connection, type_id=None, name=None, description=None):
             list of matching type rows
         False on failure
     """
+    try:
+        assert connection is not None
+    except AssertionError:
+        logger.exception('Invalid connection')
+        raise SystemExit('Exiting.')
 
     fields = []
     values = []
@@ -133,10 +144,10 @@ def check_type(connection, type_id=None, name=None, description=None):
         else:
             cmd = """SELECT type_id, name, description FROM type"""
             results = connection.execute(cmd)
-
         return [TypeRow(*r) for r in results]
-    except Exception as e:
-        logger.info('Caught: {0}'.format(str(e)))
+    except ValueError as e:
+        logger.exception('Invalid input: {0}'.format(str(e)))
+        raise SystemExit
 
 
 def add_relationship(
@@ -170,7 +181,7 @@ def add_relationship(
         connection.execute(cmd, (object_id, subject_id, type_id))
         return True
     except Exception as e:
-        logger.info('Caught: {0} adding sub {1}, type {2}, ob {3}'.format(
+        logger.exception('Caught: {0} adding sub {1}, type {2}, ob {3}'.format(
             str(e), subject_id, type_id, object_id)
         )
         return False
@@ -198,6 +209,11 @@ def check_relationship(
             list of result rows, may be empty
         False on failure
     """
+    try:
+        assert connection is not None
+    except AssertionError:
+        logger.exception('Invalid connection')
+        raise SystemExit('Exiting.')
 
     fields = []
     values = []
@@ -237,5 +253,5 @@ def check_relationship(
 
         return [RelRow(*r) for r in results]
     except Exception as e:
-        logger.info('Caught: {0}'.format(str(e)))
+        logger.exception('Caught: {0}'.format(str(e)))
         return False
