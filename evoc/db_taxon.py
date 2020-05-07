@@ -1,7 +1,7 @@
 def taxon_init():
-    """taxa table init string"""
+    """Taxon table init string"""
 
-    taxa_init_statement = """
+    TAXON_SQL = """
         CREATE TABLE IF NOT EXISTS taxon(
             taxon_id INTEGER UNIQUE PRIMARY KEY NOT NULL,
             type_id INTEGER NOT NULL,
@@ -10,7 +10,7 @@ def taxon_init():
         )
     """
 
-    return taxa_init_statement
+    return TAXON_SQL
 
 
 def add_taxon(
