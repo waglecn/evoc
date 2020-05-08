@@ -1,5 +1,16 @@
+import sqlite3
+from collections import namedtuple
+from evoc.logger import logger
+
+GeneRow = namedtuple(
+    'GeneRow',
+    'gene_id, uniquename, gb_id, type_id, pro_id, nuc_id, location, seq, '
+    'start, end'
+)
+
+
 def gene_init():
-    gene = """
+    GENE_SQL = """
         CREATE TABLE IF NOT EXISTS gene(
             gene_id INTEGER UNIQUE PRIMARY KEY NOT NULL,
             uniquename TEXT UNIQUE NOT NULL,
@@ -15,7 +26,7 @@ def gene_init():
             FOREIGN KEY (gb_id) REFERENCES gb(gb_id)
         )
     """
-    return gene
+    return GENE_SQL
 
 
 def add_gene(
@@ -31,7 +42,12 @@ def add_gene(
     start=None,
     end=None
 ):
-    cur = connection.cursor()
+    try:
+        assert connection is not None
+        cur = connection.cursor()
+    except (AssertionError, AttributeError):
+        logger.exception('Invalid connection')
+        raise SystemExit('Exiting.')
 
     fields = []
     values = []
@@ -43,11 +59,11 @@ def add_gene(
             where.append(uniquename)
         if gb_id is not None:
             fields.append('gb_id')
-            int(gb_id)
+            gb_id = int(gb_id)
             where.append(gb_id)
         if type_id is not None:
             fields.append('type_id')
-            int(type_id)
+            type_id = int(type_id)
             where.append(type_id)
         if pro_id is not None:
             fields.append('pro_id')
@@ -63,33 +79,46 @@ def add_gene(
             where.append(seq)
         if start is not None:
             fields.append('start')
-            int(start)
+            start = int(start)
             where.append(start)
         if end is not None:
             fields.append('end')
-            int(end)
+            end = int(end)
             where.append(end)
+    except ValueError:
+        logger.exception('Invalid parameter specified')
+        raise SystemExit('Exiting.')
 
-        assert len(where) == len(fields)
+    assert len(where) == len(fields)
+    try:
         assert len(where) > 0
+    except AssertionError:
+        logger.exception('Not enough paramters supplied')
+        raise SystemExit('Exiting.')
 
-        for i in range(len(where)):
-            values.append('?')
-        fields = ', '.join(fields)
-        values = ', '.join(values)
-        where = tuple(where)
+    for i in range(len(where)):
+        values.append('?')
+    fields = ', '.join(fields)
+    values = ', '.join(values)
+    where = tuple(where)
 
-        cmd = """
-            INSERT INTO gene (""" + fields + """) VALUES (""" + values + """)
-        """
+    cmd = """
+        INSERT INTO gene (""" + fields + """) VALUES (""" + values + """)
+    """
+    try:
         cur.execute(cmd, where)
-        return True
-
+        return GeneRow(*cur.execute(
+            """SELECT gene_id, uniquename, gb_id, type_id, pro_id, nuc_id,
+            location, seq, start, end FROM gene WHERE gene_id = ? LIMIT 1""",
+            (cur.lastrowid,)
+        ).fetchone())
+    except sqlite3.IntegrityError:
+        logger.exception('Invalid parameter supplied')
+        raise SystemExit('Exiting.')
     except Exception as e:
-        print('Caught gene: {0}'.format(
+        logger.exception('Caught gene: {0}'.format(
             str(e), gb_id, type_id, uniquename, location)
         )
-        return False
 
 
 def check_gene(
@@ -113,7 +142,11 @@ def check_gene(
 
     """
 
-    cur = connection.cursor()
+    try:
+        assert connection is not None
+    except AssertionError:
+        logger.exception('Invalid connection')
+        raise SystemExit('Exiting.')
 
     fields = []
     where = []
@@ -121,18 +154,18 @@ def check_gene(
     try:
         if gene_id is not None:
             where.append('gene_id = ?')
-            int(gene_id)
+            gene_id = int(gene_id)
             fields.append(gene_id)
         if uniquename is not None:
             where.append('uniquename = ?')
             fields.append(uniquename)
         if gb_id is not None:
             where.append('gb_id = ?')
-            int(gb_id)
+            gb_id = int(gb_id)
             fields.append(gb_id)
         if type_id is not None:
             where.append('type_id = ?')
-            int(type_id)
+            type_id = int(type_id)
             fields.append(type_id)
         if pro_id is not None:
             where.append('pro_id = ?')
@@ -142,51 +175,46 @@ def check_gene(
             fields.append(nuc_id)
         if start is not None:
             where.append('start = ?')
-            int(start)
+            start = int(start)
             fields.append(start)
         if end is not None:
             where.append('end = ?')
-            int(end)
+            end = int(end)
             fields.append(end)
-
         assert(len(fields) == len(where))
+    except ValueError:
+        logger.exception('Invalid paramter supplied')
+        raise SystemExit('Exiting.')
+    except AssertionError:
+        logger.exception('Not enough paramters supplied')
+        raise SystemExit('Exiting.')
 
-        if len(fields) == 0:
-            cmd = """
-                SELECT
-                    gene_id,
-                    uniquename,
-                    gb_id,
-                    type_id,
-                    pro_id,
-                    nuc_id,
-                    location,
-                    seq,
-                    start,
-                    end
-                FROM gene
-            """
-            results = cur.execute(cmd).fetchall()
+    where = ' AND '.join(where)
+    fields = tuple(fields)
+
+    cmd = """
+        SELECT
+            gene_id,
+            uniquename,
+            gb_id,
+            type_id,
+            pro_id,
+            nuc_id,
+            location,
+            seq,
+            start,
+            end
+        FROM gene
+    """
+    try:
+        if len(fields) > 0:
+            cmd += """ WHERE """ + where
+            results = connection.execute(cmd, fields)
         else:
-            where = ' AND '.join(where)
-            fields = tuple(fields)
-            cmd = """
-                SELECT
-                    gene_id,
-                    uniquename,
-                    gb_id,
-                    type_id,
-                    pro_id,
-                    nuc_id,
-                    location,
-                    seq,
-                    start,
-                    end
-                FROM gene
-            WHERE """ + where
-            results = cur.execute(cmd, fields).fetchall()
-        return results
-
+            results = connection.execute(cmd)
+        return [GeneRow(*r) for r in results]
+    except AttributeError:
+        logger.exception('Invalid connection supplied')
+        raise SystemExit('Exiting.')
     except Exception as e:
-        print('Caught: {0}'.format(str(e)))
-        return False
+        logger.exception('Caught: {0}'.format(str(e)))
