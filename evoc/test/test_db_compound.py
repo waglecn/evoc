@@ -1,6 +1,9 @@
 from evoc import db
 from nose.tools import assert_equal
 from nose.tools import assert_raises
+from evoc.logger import logger
+
+logger.setLevel(5)
 
 
 class Test_db_molecule:
