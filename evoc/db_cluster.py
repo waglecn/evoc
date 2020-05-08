@@ -1,14 +1,24 @@
+import sqlite3
+from collections import namedtuple
+from evoc.logger import logger
+
+logger.setLevel(5)
+
+
+ClusterRow = namedtuple('ClusterRow', 'cluster_id, type_id')
+
+
 def cluster_init():
     """cluster table init string"""
 
-    clusters = """
+    CLUSTER_SQL = """
         CREATE TABLE IF NOT EXISTS cluster(
             cluster_id INTEGER UNIQUE PRIMARY KEY NOT NULL,
             type_id INTEGER UNIQUE NOT NULL,
             FOREIGN KEY (type_id) REFERENCES type(type_id)
         )
     """
-    return clusters
+    return CLUSTER_SQL
 
 
 def add_cluster(
@@ -19,35 +29,46 @@ def add_cluster(
 
     Retur: Boolean success/failure
     """
-    cur = connection.cursor()
+    try:
+        cur = connection.cursor()
+    except AttributeError:
+        logger.exception('Invalid connection')
+        raise SystemExit('Exiting.')
 
     insert = []
     values = []
     where = []
 
-    if type_id is not None:
-        insert.append('type_id')
-        values.append('?')
-        where.append(type_id)
+    try:
+        assert type_id is not None
+        if type_id is not None:
+            insert.append('type_id')
+            values.append('?')
+            where.append(int(type_id))
+        assert(len(values) == len(where) == len(insert))
+        if len(values) > 0:
+            insert = ', '.join(insert)
+            values = ', '.join(values)
+            where = tuple(where)
+    except (ValueError, AssertionError):
+        logger.exception('Invalid type_id specified')
+        raise SystemExit('Exiting.')
 
-    assert(len(values) == len(where) == len(insert))
-    if len(values) > 0:
-        insert = ', '.join(insert)
-        values = ', '.join(values)
-        where = tuple(where)
-
-        cmd = """
-            INSERT INTO cluster (""" + insert + """) VALUES (""" + values + """)
-        """
-        try:
-            for i in where:
-                int(i)
-            cur.execute(cmd, where)
-            return True
-        except Exception as e:
-            print('Caught: {0}'.format(e))
-
-    return False
+    cmd = """
+        INSERT INTO cluster (type_id) VALUES (""" + values + """)
+    """
+    try:
+        cur.execute(cmd, where)
+        return ClusterRow(*cur.execute(
+            "SELECT cluster_id, type_id FROM cluster WHERE cluster_id = ?",
+            (cur.lastrowid,)
+        ).fetchone())
+    except sqlite3.IntegrityError:
+        logger.exception('Tried to add unknown type_id')
+        raise SystemExit('Exiting.')
+    except Exception as e:
+        logger.exception('Caught: {0}'.format(e))
+        raise SystemExit('Exiting.')
 
 
 def check_cluster(
@@ -61,47 +82,38 @@ def check_cluster(
     Return: result list, or []
     """
 
-    cur = connection.cursor()
+    try:
+        assert connection is not None
+    except AssertionError:
+        logger.exception('Invalid Connection')
+        raise SystemExit('Exiting.')
 
     values = []
     where = []
 
-    if cluster_id is not None:
-        where.append('cluster_id = ?')
-        values.append(cluster_id)
-    if type_id is not None:
-        where.append('type_id = ?')
-        values.append(type_id)
+    try:
+        if cluster_id is not None:
+            where.append('cluster_id = ?')
+            values.append(int(cluster_id))
+        if type_id is not None:
+            where.append('type_id = ?')
+            values.append(int(type_id))
+    except ValueError:
+        logger.exception('Invalid parameter supplied')
+        raise SystemExit('Exiting.')
 
     assert(len(values) == len(where))
+
+    cmd = """SELECT cluster_id, type_id FROM cluster"""
     try:
-        for i in values:
-            int(i)
         if len(values) == 0:
-            cmd = """
-                SELECT
-                    cluster_id,
-                    type_id
-                FROM cluster
-            """
-            results = cur.execute(cmd).fetchall()
-            return results
+            result = connection.execute(cmd).fetchall()
         else:
             where = ' AND '.join(where)
             values = tuple(values)
-            cmd = """
-                SELECT
-                    cluster_id,
-                    type_id
-                FROM cluster
-            WHERE """ + where
-            results = cur.execute(cmd, values).fetchall()
-            if len(results) > 0:
-                return results
-            else:
-                return []
-
+            cmd += " WHERE " + where
+            result = connection.execute(cmd, values).fetchall()
+        return [ClusterRow(*r) for r in result]
     except Exception as e:
-        print('Caught: {0}'.format(e))
-
-    return []
+        logger.exception('Caught: {0}'.format(e))
+        raise SystemExit('Exiting.')
