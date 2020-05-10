@@ -7,7 +7,6 @@ Exports (classes, exceptions, functions)
 
 import os
 import sqlite3
-from collections import namedtuple
 
 try:
     import importlib.resources as importlib_resources
@@ -15,14 +14,14 @@ except ImportError:
     # Python <3.7 backported `importlib_resources`
     import importlib_resources
 
-from evoc.db_type_rel import *
-from evoc.db_gb import *
-from evoc.db_cluster import *
-from evoc.db_gene import *
-from evoc.db_cluster_gene import *
-from evoc.db_domain import *
-from evoc.db_taxon import *
-from evoc.db_compound import *
+from evoc.db.db_type_rel import type_init, rel_init, add_type
+from evoc.db.db_gb import gb_init
+from evoc.db.db_cluster import cluster_init
+from evoc.db.db_gene import gene_init
+from evoc.db.db_cluster_gene import cluster_gene_init
+from evoc.db.db_domain import domain_init
+from evoc.db.db_taxon import taxon_init
+from evoc.db.db_compound import compound_init
 
 from evoc.logger import logger
 
@@ -30,6 +29,8 @@ from evoc.logger import logger
 def init_db(dbfile):
     if os.path.exists(dbfile):
         logger.debug('Found existing file {}'.format(os.path.abspath(dbfile)))
+    elif dbfile == ':memory:':
+        logger.debug('Using in-memory file {}'.format(dbfile))
     else:
         logger.debug('Creating new file {}'.format(os.path.abspath(dbfile)))
 
@@ -113,6 +114,7 @@ def load_backup(dumpfile, newdb):
 
 def parse_relationship_tsv(tsv_file, types=set(), relationships=set()):
     """Open a tsv file, return tuple of sets (types, relationshps)"""
+    from collections import namedtuple
 
     Type = namedtuple('Type', "name, description")
     Rel = namedtuple('Rel', "subject, rel, object")
