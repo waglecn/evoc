@@ -52,48 +52,6 @@ class Test_utils:
         except Exception:
             pass
 
-    def test_01_read_relationship_tsv(self):
-        """Load the example /tests/test_types.tsv"""
-        rel_tsv_file = self.rel_tsv_file
-        types, relationships = utils.read_relationship_tsv(rel_tsv_file)
-        assert_equal(len(types), 6)
-        assert_equal(len(relationships), 1)
-
-        connection = self.connection
-        types_tsv_file = self.rel_tsv_file
-        types, relationships = utils.read_relationship_tsv(types_tsv_file)
-        db.load_relationships(connection, types, relationships)
-
-        basic_types_tsv_file = self.basic_types_tsv_file
-        types, relationships = utils.read_relationship_tsv(
-            basic_types_tsv_file
-        )
-        db.load_relationships(connection, types, relationships)
-
-    def test_02a_gene_location(self):
-        """test encoding good location"""
-        location = [0, 0, 100]
-        good_result = utils.encode_gene_location(location)
-        assert_not_equal(good_result, False)
-
-    def test_02b_gene_location(self):
-        """test encoding bad location"""
-        null_location = None
-        bad_result = utils.encode_gene_location(null_location)
-        assert_equal(bad_result, False)
-
-    def test_02c_gene_location(self):
-        """test decoding good location"""
-        location = [0, 0, 100]
-        good_result = utils.encode_gene_location(location)
-        decoded = utils.decode_gene_location(good_result)
-        assert_equal(decoded, location)
-
-    def test_02d_gene_location(self):
-        """test decoding bad location"""
-        bad_decoded = utils.decode_gene_location('None')
-        assert_equal(bad_decoded, False)
-
     def test_03_test_translate_anchor(self):
         """test the translate anchor function with anchor name and id"""
         result = utils.translate_anchor(self.connection, 'none')  # 1, none
